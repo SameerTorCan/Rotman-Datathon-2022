@@ -1,0 +1,565 @@
+---
+title: "Datathon 2022"
+author: "Sky, Sunny, Sameer"
+date: '2022-05-31'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Power Play Specialists
+
+### Successful Shots (Goals)
+```{r}
+library(dplyr)
+```
+
+```{r}
+NWHL <- read.csv("/Users/Sameer/Desktop/Rotman MMA Summer Datathon NWHL.csv",header = TRUE)
+```
+
+```{r}
+#### Power Play Specialists
+# find goals in every game
+Goal_January23 <- filter(NWHL, Event == "Goal", game_date == "23-01-2021")
+
+Goal_January24 <- filter(NWHL, Event == "Goal", game_date == "24-01-2021")
+
+Goal_January26 <- filter(NWHL, Event == "Goal", game_date == "26-01-2021")
+
+Goal_January27 <- filter(NWHL, Event == "Goal", game_date == "27-01-2021")
+
+Goal_January30 <- filter(NWHL, Event == "Goal", game_date == "30-01-2021")
+
+Goal_January31 <- filter(NWHL, Event == "Goal", game_date == "31-01-2021")
+
+Goal_February01 <- filter(NWHL, Event == "Goal", game_date == "01-02-2021")
+```
+
+```{r}
+# find players and the number of their goals in every game
+Jan23 = Goal_January23 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan23 = length(Event))
+
+Jan24 = Goal_January24 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan24 = length(Event))
+
+Jan26 = Goal_January26 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan26 = length(Event))
+
+Jan27 = Goal_January27 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan27 = length(Event))
+
+Jan30 = Goal_January30 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan30 = length(Event))
+
+Jan31 = Goal_January31 %>% group_by(Player) %>%
+                    summarise(total_goal_Jan31 = length(Event))
+
+Feb01 = Goal_February01 %>% group_by(Player) %>%
+                    summarise(total_goal_Feb01 = length(Event))
+```
+
+```{r}
+# merge the Goal data
+Player_goal_merge1 <- merge(Jan23, Jan24, by="Player", all = TRUE)
+
+Player_goal_merge2 <- merge(Player_goal_merge1, Jan26, by="Player", all = TRUE)
+
+Player_goal_merge3 <- merge(Player_goal_merge2, Jan27, by="Player", all=TRUE)
+
+Player_goal_merge4 <- merge(Player_goal_merge3, Jan30, by="Player", all=TRUE)
+
+Player_goal_merge5 <- merge(Player_goal_merge4, Jan31, by="Player", all=TRUE)
+
+Player_goal_merge_final <- merge(Player_goal_merge5, Feb01, by="Player", all=TRUE)
+
+Player_goal_merge_final
+```
+
+```{r}
+# calculate the total number of goals for each player
+goal_sum = rowSums(Player_goal_merge_final[2:8], na.rm = TRUE)
+Total_game <- 7
+Games_played <- Total_game - rowSums(is.na(Player_goal_merge_final))
+Player_goal_list <- cbind(Player_goal_merge_final, goal_sum, Games_played)
+Player_goal_list
+```
+
+```{r}
+# find each player's number of goals per game
+
+Player_goal_list$goal_per_game <- goal_sum/Games_played
+Final_result_goal <- Player_goal_list[order(Player_goal_list$goal_per_game, decreasing = TRUE),]
+
+
+Final_result_goal <- select(Final_result_goal,Player,goal_sum,Games_played,goal_per_game)
+```
+### Shot Accuracy
+# find shots in every game
+Total_Shots <- filter(NWHL, Event == "Shot")
+
+
+# find players and the number of their shots in every game
+shot_table= Total_Shots %>% group_by(Player) %>%
+                    summarise(Total_Shots = length(Event))
+                    
+
+
+# Shot detail
+Succ_Shot <- filter(NWHL, Event == "Shot" & Detail.2 == "On Net")
+
+Unsucc_Shot <- filter(NWHL, Event == "Shot" & (Detail.2 == "Missed" | Detail.2 == "Blocked"))
+
+Succ_Shot = Succ_Shot%>% group_by(Player) %>%
+                    summarise(Successful = length(Event))
+                    
+Unsucc_Shot = Unsucc_Shot%>% group_by(Player) %>%
+                    summarise(Unsuccessful = length(Event))
+                    
+names(Succ_Shot)[names(Succ_Shot) == "Total_Shots"] <- "Successful"
+names(Unsucc_Shot)[names(Unsucc_Shot) == "Total_Shots"] <- "Unsuccessful"
+
+shots <- distinct(shot_table)
+
+Player_shot_merge <- merge(shot_table, Succ_Shot, by = "Player")
+
+Player_shot_merge <- within(Player_shot_merge, Accuracy<-(Successful/Total_Shots)*100)
+
+Final_result_Shot <- Player_shot_merge[order(Player_shot_merge$Accuracy, decreasing = TRUE),]
+
+Final_result_shot
+
+### Merging shots and goals
+
+shot_goal_merge <- merge(Final_result_goal, Final_result_Shot , by="Player" , all = TRUE)
+
+shot_goal_merge_final <- filter(shot_goal_merge, goal_sum != "NA")
+
+# Faceoff Specialists
+
+Faceoff_specialists <- filter(NWHL, Event == "Faceoff Win")
+
+Faceoff =  Faceoff_specialists %>% group_by(Player) %>%
+                    summarise(Total_faceoff_wins=length(Event))
+
+Faceoff_merge <- merge(shot_goal_merge_final,Faceoff, by="Player", all =TRUE )
+
+Faceoff_merge_final <- filter(Faceoff_merge ,goal_sum != "NA")
+
+# Puck recovery specialists
+Puckrecovery_specialists <- filter(NWHL, Event == "Puck Recovery")
+
+Puckrecovery_count = Puckrecovery_specialists %>% group_by(Player) %>%
+                    summarise(Puckrecovery=length(Event))
+                    
+puckrecovery_merge <- merge(Faceoff_merge_final, Puckrecovery_count, by ="Player" , all =TRUE)
+                    
+puckrecovery_merge_final <- filter(puckrecovery_merge ,goal_sum != "NA")    
+
+# pressure metric
+
+Pressure_metric <- filter(NWHL, NWHL$X.Coordinate >= 100)
+
+Pressure_metric_count = Pressure_metric %>% group_by(Player) %>%
+                    summarise(Pmetric=length(X.Coordinate)
+
+count(puckrecovery_merge_final)
+
+nrow(puckrecovery_merge_final)
+
+
+pmetric_merge<- merge(puckrecovery_merge_final, Pressure_metric_count, by = "Player", all =TRUE)
+
+pmetric_merge_final <- filter(pmetric_merge, goal_sum != "NA")
+
+
+library(writexl)
+library(xlsx)
+
+write_xlsx(pmetric_merge_final, '/Users/Sameer/Desktop/lpp.xlsx')
+
+---------------------------------------------------------------------------------------------------
+#### Pentalty Kill Specialists
+### Precise Passes
+
+```{r}
+# find incomplete play in every game
+Play_January23 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "23-01-2021")
+
+Play_January24 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "24-01-2021")
+
+Play_January26 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "26-01-2021")
+
+Play_January27 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "27-01-2021")
+
+Play_January30 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "30-01-2021")
+
+Play_January31 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "31-01-2021")
+
+Play_February01 <- filter(NWHL, Event == "Play" | Event == "Incomplete Play", game_date == "01-02-2021")
+
+
+# find play in every game
+successful_Play_January23 <- filter(NWHL, Event == "Play", game_date == "23-01-2021")
+
+successful_Play_January24 <- filter(NWHL, Event == "Play", game_date == "24-01-2021")
+
+successful_Play_January26 <- filter(NWHL, Event == "Play", game_date == "26-01-2021")
+
+successful_Play_January27 <- filter(NWHL, Event == "Play", game_date == "27-01-2021")
+
+successful_Play_January30 <- filter(NWHL, Event == "Play", game_date == "30-01-2021")
+
+successful_Play_January31 <- filter(NWHL, Event == "Play", game_date == "31-01-2021")
+
+successful_Play_February01 <- filter(NWHL, Event == "Play", game_date == "01-02-2021")
+```
+
+
+```{r}
+# find players and the number of their passes in every game
+January23_pass = Play_January23 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan23 = length(Event))
+
+January24_pass = Play_January24 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan24 = length(Event))
+
+January26_pass = Play_January26 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan26 = length(Event))
+
+January27_pass = Play_January27 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan27 = length(Event))
+
+January30_pass = Play_January30 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan30 = length(Event))
+
+January31_pass = Play_January31 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan31 = length(Event))
+
+February01_pass = Play_February01 %>% group_by(Player)  %>%
+                    summarise(total_pass_Feb01 = length(Event))
+
+# find players and the number of their successful passes in every game
+successful_January23_pass = successful_Play_January23 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan23_successful = length(Event))
+
+successful_January24_pass = successful_Play_January24 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan24_successful = length(Event))
+
+successful_January26_pass = successful_Play_January26 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan26_successful = length(Event))
+
+successful_January27_pass = successful_Play_January27 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan27_successful = length(Event))
+
+successful_January30_pass = successful_Play_January30 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan30_successful = length(Event))
+
+successful_January31_pass = successful_Play_January31 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan31_successful = length(Event))
+
+successful_February01_pass = successful_Play_February01 %>% group_by(Player)  %>%
+                    summarise(total_pass_Feb01_successful = length(Event))
+```
+
+
+```{r}
+# merge the data for passes 
+Player_merge1_play <- merge(January23_pass,January24_pass,by="Player",all = TRUE)
+Player_merge2_play <- merge(Player_merge1_play,January26_pass,by="Player",all = TRUE)
+Player_merge3_play <- merge(Player_merge2_play,January27_pass,by="Player",all=TRUE)
+Player_merge4_play <- merge(Player_merge3_play,January30_pass,by="Player",all=TRUE)
+Player_merge5_play <- merge(Player_merge4_play,January31_pass,by="Player",all=TRUE)
+Player_merge6_play <- merge(Player_merge5_play,February01_pass,by="Player",all=TRUE)
+Player_merge6_play
+
+# merge the data for successful passes 
+Player_merge1_play_successful <- merge(successful_January23_pass,successful_January24_pass,by="Player",all = TRUE)
+Player_merge2_play_successful <- merge(Player_merge1_play_successful,successful_January26_pass,by="Player",all = TRUE)
+Player_merge3_play_successful <- merge(Player_merge2_play_successful,successful_January27_pass,by="Player",all=TRUE)
+Player_merge4_play_successful <- merge(Player_merge3_play_successful,successful_January30_pass,by="Player",all=TRUE)
+Player_merge5_play_successful <- merge(Player_merge4_play_successful,successful_January31_pass,by="Player",all=TRUE)
+Player_merge6_play_successful <- merge(Player_merge5_play_successful,successful_February01_pass,by="Player",all=TRUE)
+Player_merge6_play_successful
+
+
+Player_pass_merge_final <- merge(Player_merge6_play,Player_merge6_play_successful,by = "Player",all=TRUE)
+Player_pass_merge_final
+```
+```{r}
+# calculate the sum of passes and the sum of successful passes for each player
+pass_sum = rowSums(Player_pass_merge_final[2:8],na.rm = TRUE)
+successful_pass_sum = rowSums(Player_pass_merge_final[9:15],na.rm = TRUE)
+Player_pass_list <- cbind(Player_pass_merge_final, pass_sum, successful_pass_sum)
+```
+
+```{r}
+# draw a boxplot for the number of passes for each player
+boxplot(pass_sum, 
+        ylab = "Number of Passes", 
+        main = "Number of Passes for Each Player")
+abline(h = quantile(pass_sum, 0.25), col="red", lty=2)
+quantile(pass_sum, c(0.25, 0.75))
+# remove players with less than 40 passes
+Player_pass_list <- Player_pass_list %>%
+  filter(pass_sum > 40)
+
+```
+
+
+```{r}
+# calculate the successful pass rate
+Player_pass_list$pass_successful_rate <- Player_pass_list$successful_pass_sum/Player_pass_list$pass_sum
+Final_result_pass <- Player_pass_list[order(Player_pass_list$pass_successful_rate,decreasing = TRUE),]
+
+
+
+Takeaway_January23 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-23")
+
+Takeaway_January24 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-24")
+
+Takeaway_January26 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-26")
+
+Takeaway_January27 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-27")
+
+Takeaway_January30 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-30")
+
+Takeaway_January31 <- filter(NWHL,Event == "Takeaway",game_date == "2021-01-31")
+
+Takeaway_February01 <- filter(NWHL,Event == "Takeaway",game_date == "2021-02-01")
+```
+
+```{r}
+January23 = Takeaway_January23 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan23 = length(Event))
+
+January24 = Takeaway_January24 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan24 = length(Event))
+
+January26 = Takeaway_January26 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan26 = length(Event))
+
+January27 = Takeaway_January27 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan27 = length(Event))
+
+January30 = Takeaway_January30 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan30 = length(Event))
+
+January31 = Takeaway_January31 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Jan31 = length(Event))
+
+February01 = Takeaway_February01 %>% group_by(Player)  %>%
+                    summarise(total_takeaway_Feb01 = length(Event))
+```
+
+```{r}
+Player_merge1 <- merge(January23,January24,by="Player",all = TRUE)
+Player_merge2 <- merge(Player_merge1,January26,by="Player",all = TRUE)
+Player_merge3 <- merge(Player_merge2,January27,by="Player",all=TRUE)
+Player_merge4 <- merge(Player_merge3,January30,by="Player",all=TRUE)
+Player_merge5 <- merge(Player_merge4,January31,by="Player",all=TRUE)
+Player_merge_final <- merge(Player_merge5,February01,by="Player",all=TRUE)
+Player_merge_final
+```
+
+```{r}
+takeaway_sum = rowSums(Player_merge_final[2:8],na.rm = TRUE)
+Total_game <- 7
+Game_played <- Total_game - rowSums(is.na(Player_merge_final))
+Player_takeaway_list <- cbind(Player_merge_final,takeaway_sum,Game_played)
+```
+
+
+```{r}
+Player_takeaway_list$takeaway_per_game <- takeaway_sum/Game_played
+Final_result_takeaway <- Player_takeaway_list[order(Player_takeaway_list$takeaway_per_game,decreasing = TRUE),]
+
+Final_result_takeaway
+```
+
+```{r}
+Play_January23 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-23")
+
+Play_January24 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-24")
+
+Play_January26 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-26")
+
+Play_January27 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-27")
+
+Play_January30 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-30")
+
+Play_January31 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-01-31")
+
+Play_February01 <- filter(NWHL,Event == "Play" | Event == "Incomplete Play",game_date == "2021-02-01")
+
+
+successful_Play_January23 <- filter(NWHL,Event == "Play",game_date == "2021-01-23")
+
+successful_Play_January24 <- filter(NWHL,Event == "Play",game_date == "2021-01-24")
+
+successful_Play_January26 <- filter(NWHL,Event == "Play",game_date == "2021-01-26")
+
+successful_Play_January27 <- filter(NWHL,Event == "Play",game_date == "2021-01-27")
+
+successful_Play_January30 <- filter(NWHL,Event == "Play",game_date == "2021-01-30")
+
+successful_Play_January31 <- filter(NWHL,Event == "Play",game_date == "2021-01-31")
+
+successful_Play_February01 <- filter(NWHL,Event == "Play",game_date == "2021-02-01")
+```
+
+```{r}
+January23_pass = Play_January23 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan23 = length(Event))
+
+January24_pass = Play_January24 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan24 = length(Event))
+
+January26_pass = Play_January26 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan26 = length(Event))
+
+January27_pass = Play_January27 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan27 = length(Event))
+
+January30_pass = Play_January30 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan30 = length(Event))
+
+January31_pass = Play_January31 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan31 = length(Event))
+
+February01_pass = Play_February01 %>% group_by(Player)  %>%
+                    summarise(total_pass_Feb01 = length(Event))
+
+
+successful_January23_pass = successful_Play_January23 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan23_successful = length(Event))
+
+successful_January24_pass = successful_Play_January24 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan24_successful = length(Event))
+
+successful_January26_pass = successful_Play_January26 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan26_successful = length(Event))
+
+successful_January27_pass = successful_Play_January27 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan27_successful = length(Event))
+
+successful_January30_pass = successful_Play_January30 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan30_successful = length(Event))
+
+successful_January31_pass = successful_Play_January31 %>% group_by(Player)  %>%
+                    summarise(total_pass_Jan31_successful = length(Event))
+
+successful_February01_pass = successful_Play_February01 %>% group_by(Player)  %>%
+                    summarise(total_pass_Feb01_successful = length(Event))
+```
+
+
+```{r}
+Player_merge1_play <- merge(January23_pass,January24_pass,by="Player",all = TRUE)
+Player_merge2_play <- merge(Player_merge1_play,January26_pass,by="Player",all = TRUE)
+Player_merge3_play <- merge(Player_merge2_play,January27_pass,by="Player",all=TRUE)
+Player_merge4_play <- merge(Player_merge3_play,January30_pass,by="Player",all=TRUE)
+Player_merge5_play <- merge(Player_merge4_play,January31_pass,by="Player",all=TRUE)
+Player_merge6_play <- merge(Player_merge5_play,February01_pass,by="Player",all=TRUE)
+
+
+Player_merge1_play_successful <- merge(successful_January23_pass,successful_January24_pass,by="Player",all = TRUE)
+Player_merge2_play_successful <- merge(Player_merge1_play_successful,successful_January26_pass,by="Player",all = TRUE)
+Player_merge3_play_successful <- merge(Player_merge2_play_successful,successful_January27_pass,by="Player",all=TRUE)
+Player_merge4_play_successful <- merge(Player_merge3_play_successful,successful_January30_pass,by="Player",all=TRUE)
+Player_merge5_play_successful <- merge(Player_merge4_play_successful,successful_January31_pass,by="Player",all=TRUE)
+Player_merge6_play_successful <- merge(Player_merge5_play_successful,successful_February01_pass,by="Player",all=TRUE)
+
+
+
+Player_pass_merge_final <- merge(Player_merge6_play,Player_merge6_play_successful,by = "Player",all=TRUE)
+
+```
+```{r}
+pass_sum = rowSums(Player_pass_merge_final[2:8],na.rm = TRUE)
+successful_pass_sum = rowSums(Player_pass_merge_final[9:15],na.rm = TRUE)
+Player_pass_list <- cbind(Player_pass_merge_final,pass_sum,successful_pass_sum)
+```
+
+
+
+```{r}
+Player_pass_list$pass_successful_rate <- successful_pass_sum/pass_sum
+Final_result_pass <- Player_pass_list[order(Player_pass_list$pass_successful_rate,decreasing = TRUE),]
+
+Final_result_pass
+```
+```{r}
+puckrecovery_January23 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-23")
+
+puckrecovery_January24 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-24")
+
+puckrecovery_January26 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-26")
+
+puckrecovery_January27 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-27")
+
+puckrecovery_January30 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-30")
+
+puckrecovery_January31 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-01-31")
+
+puckrecovery_February01 <- filter(NWHL,Event == "Puck Recovery",game_date == "2021-02-01")
+```
+
+```{r}
+January23_puckrecovery = puckrecovery_January23 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+January24_puckrecovery = puckrecovery_January24 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+January26_puckrecovery = puckrecovery_January26 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+January27_puckrecovery = puckrecovery_January27 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+January30_puckrecovery = puckrecovery_January30 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+January31_puckrecovery = puckrecovery_January31 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+
+February01_puckrecovery = puckrecovery_February01 %>% group_by(Player)  %>%
+                    summarise(total_pukerecovery_January23 = length(Event))
+```
+
+```{r}
+Player_merge1_puckrecovery <- merge(January23_puckrecovery,January24_puckrecovery,by="Player",all = TRUE)
+Player_merge2_puckrecovery <- merge(Player_merge1_puckrecovery,January26_puckrecovery,by="Player",all = TRUE)
+Player_merge3_puckrecovery <- merge(Player_merge2_puckrecovery,January27_puckrecovery,by="Player",all=TRUE)
+Player_merge4_puckrecovery <- merge(Player_merge3_puckrecovery,January30_puckrecovery,by="Player",all=TRUE)
+Player_merge5_puckrecovery <- merge(Player_merge4_puckrecovery,January31_puckrecovery,by="Player",all=TRUE)
+Player_merge_final_puckrecovery <- merge(Player_merge5_puckrecovery,February01_puckrecovery,by="Player",all=TRUE)
+Player_merge_final_puckrecovery
+```
+
+```{r}
+puckrecovery_sum = rowSums(Player_merge_final_puckrecovery[2:8],na.rm = TRUE)
+Total_game_puckrecovery <- 7
+Game_played_puckrecovery <- Total_game - rowSums(is.na(Player_merge_final_puckrecovery))
+Player_puckrecovery_list <- cbind(Player_merge_final_puckrecovery,puckrecovery_sum,Game_played_puckrecovery)
+```
+
+
+```{r}
+Player_puckrecovery_list$puckrecovery_per_game <- puckrecovery_sum/Game_played_puckrecovery
+Final_result_puckrecovery <- Player_puckrecovery_list[order(Player_puckrecovery_list$puckrecovery_per_game,decreasing = TRUE),]
+
+Final_result_puckrecovery
+```
+```{r}
+Final_merge1 <- merge(Final_result_pass,Final_result_takeaway,by="Player",all = TRUE)
+Final_merge <- merge(Final_merge1,Final_result_puckrecovery,by="Player",all = TRUE)
+Result_filter<- Final_merge[,c('Player','pass_sum','successful_pass_sum','pass_successful_rate','takeaway_sum','Game_played','takeaway_per_game','puckrecovery_sum','puckrecovery_per_game')]
+median_takeaway_sum <- mean(Result_filter$takeaway_sum,na.rm = TRUE)
+average_player <- filter(Result_filter,takeaway_sum>median_takeaway_sum)
+
+```
+
+
